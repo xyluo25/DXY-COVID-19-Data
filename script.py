@@ -32,7 +32,7 @@ time_types = ('pubDate', 'createTime', 'modifyTime', 'dataInfoTime', 'crawlTime'
 
 
 def dict_parser(document, city_dict=None):
-    result = dict()
+    result = {}
 
     try:
         result['continentName'] = document['continentName']
@@ -110,18 +110,17 @@ class Listener:
             time.sleep(3600)
 
     def listener(self):
-        changed_files = list()
+        changed_files = []
         for collection in collections:
-            json_file = open(
+            with open(
                 os.path.join(
                     os.path.split(os.path.realpath(__file__))[0], 'json', collection + '.json'),
                 'r', encoding='utf-8'
-            )
-            try:
-                static_data = json.load(json_file)
-            except (UnicodeDecodeError, FileNotFoundError, json.decoder.JSONDecodeError):
-                static_data = None
-            json_file.close()
+            ) as json_file:
+                try:
+                    static_data = json.load(json_file)
+                except (UnicodeDecodeError, FileNotFoundError, json.decoder.JSONDecodeError):
+                    static_data = None
             while True:
                 request = requests.get(url='https://lab.isaaclin.cn/nCoV/api/' + collections.get(collection))
                 if request.status_code == 200:
@@ -144,19 +143,18 @@ class Listener:
             git_manager(changed_files=changed_files)
 
     def json_dumper(self, collection, content=None):
-        json_file = open(
+        with open(
             os.path.join(
                 os.path.split(
                     os.path.realpath(__file__))[0], 'json', collection + '.json'
             ),
             'w', encoding='utf-8'
-        )
-        json.dump(content, json_file, ensure_ascii=False, indent=4)
-        json_file.close()
+        ) as json_file:
+            json.dump(content, json_file, ensure_ascii=False, indent=4)
 
     def csv_dumper(self, collection, cursor):
         if collection == 'DXYArea':
-            structured_results = list()
+            structured_results = []
             for document in cursor:
                 if document.get('cities', None):
                     for city_counter in range(len(document['cities'])):
@@ -175,7 +173,12 @@ class Listener:
             df = pd.DataFrame(data=cursor)
             for time_type in time_types:
                 if time_type in df.columns:
-                    df[time_type] = df[time_type].apply(lambda x: datetime.datetime.fromtimestamp(x / 1000) if not pd.isna(x) else '')
+                    df[time_type] = df[time_type].apply(
+                        lambda x: ''
+                        if pd.isna(x)
+                        else datetime.datetime.fromtimestamp(x / 1000)
+                    )
+
             df.to_csv(
                 path_or_buf=os.path.join(
                     os.path.split(os.path.realpath(__file__))[0], 'csv', collection + '.csv'),
@@ -183,20 +186,19 @@ class Listener:
             )
 
     def db_dumper(self, collection, cursor):
-        data = list()
+        data = []
         for document in cursor:
             document.pop('_id')
             data.append(document)
 
-        json_file = open(
+        with open(
             os.path.join(
                 os.path.split(
                     os.path.realpath(__file__))[0], 'json', collection + '-TimeSeries.json'
             ),
             'w', encoding='utf-8'
-        )
-        json.dump(data, json_file, ensure_ascii=False, indent=4)
-        json_file.close()
+        ) as json_file:
+            json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':
